@@ -10,11 +10,27 @@ import (
 	"log"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/zeebo/errs"
 )
+
+// GameObserver binds a UserID to a Channel.
+type GameObserver struct {
+	UserID  string
+	Channel chan *Game
+}
+
+// FullGame wraps a Game with Observers and Players so that we can
+// access players boardstates with only a game and a player ID
+type FullGame struct {
+	sync.Mutex
+
+	GameID    string
+	Observers map[string]*GameObserver
+}
 
 // Games returns a list of Games.
 func (s *graphQLServer) Games(ctx context.Context, gameID *string) ([]*Game, error) {
@@ -27,33 +43,62 @@ func (s *graphQLServer) Games(ctx context.Context, gameID *string) ([]*Game, err
 		log.Printf("failed to get game %s: %s", *gameID, err)
 		return nil, fmt.Errorf("failed to get game %s: %s", *gameID, err)
 	}
-	log.Printf("found game: %+v", g)
 	return []*Game{g}, nil
 }
 
-func (s *graphQLServer) GameUpdated(ctx context.Context, gameID string) (<-chan *Game, error) {
-	// create a new gameChannel to announce Game updates over
-	games := make(chan *Game, 1)
+// GameUpdated returns a channel for a game or an error.
+func (s *graphQLServer) GameUpdated(ctx context.Context, gameID string, userID string) (<-chan *Game, error) {
 	s.mutex.Lock()
-	// set the gameChannels to have the new receiving channel
-	s.gameChannels[gameID] = games
-	// announce the game over the GameChannels
-	s.mutex.Unlock()
+	defer s.mutex.Unlock()
 
-	// clean up
-	go func() {
-		<-ctx.Done()
-		s.mutex.Lock()
-		delete(s.gameChannels, gameID)
-		s.mutex.Unlock()
-	}()
+	g, ok := s.games[gameID]
+	if !ok {
+		log.Printf("game %s not found - creating a subscription channel for %s", gameID, userID)
+		game := &FullGame{
+			GameID:    gameID,
+			Observers: make(map[string]*GameObserver),
+		}
 
-	return games, nil
+		// add observer to the FullGame
+		obs := &GameObserver{
+			UserID:  userID,
+			Channel: make(chan *Game),
+		}
+
+		// clean up the observers channel when we're done with it
+		go func() {
+			<-ctx.Done()
+			game.Mutex.Lock()
+			log.Printf("cleaning up observer %s game %s", game.GameID, userID)
+			delete(game.Observers, userID)
+			game.Mutex.Unlock()
+		}()
+
+		// game observers are keyed by userID.
+		// only one connection per userID is allowed.
+		game.Mutex.Lock()
+		game.Observers[userID] = obs
+		game.Mutex.Unlock()
+
+		// register the game in the main server directory
+		s.games[gameID] = game
+		return obs.Channel, nil
+	}
+
+	// game exists, so just push user into observers and return their channel
+	obs := &GameObserver{
+		UserID:  userID,
+		Channel: make(chan *Game),
+	}
+	g.Mutex.Lock()
+	g.Observers[userID] = obs
+	g.Mutex.Unlock()
+
+	return obs.Channel, nil
 }
 
 // UpdateGame is what's used to change the name of the game, format, insert
 // or remove players, or change other meta informatin about a game.
-// NB: Game _can_ touch boardstate right now, and it probably shouldn't.
 func (s *graphQLServer) UpdateGame(ctx context.Context, new InputGame) (*Game, error) {
 	game := &Game{}
 	b, err := json.Marshal(new)
@@ -71,20 +116,15 @@ func (s *graphQLServer) UpdateGame(ctx context.Context, new InputGame) (*Game, e
 		return nil, fmt.Errorf("failed to save updated game state: %s", err)
 	}
 
-	// notify game channels of update
-	if ch, ok := s.gameChannels[game.ID]; !ok {
-		log.Printf("failed to find gameChannel[%s]", game.ID)
-		return nil, fmt.Errorf("failed to find game update channel: %s", game.ID)
-	} else {
-		log.Printf("emitting on gameChannel[%s]", game.ID)
-		ch <- game
-	}
+	go s.publishGame(game.ID, game)
 
 	return game, nil
 }
 
 // JoinGame ...
 func (s *graphQLServer) JoinGame(ctx context.Context, input *InputJoinGame) (*Game, error) {
+	// TODO: Handle rejoins by detecting if that player's user.ID already exists
+	// in a given game. If it does, just return that same setup.
 	// TODO: Check context for User auth and append user info that way
 	// TODO: PUll user boardstate creation out into a function since we do it multiple places
 	if input.User.ID == nil {
@@ -168,9 +208,7 @@ func (s *graphQLServer) JoinGame(ctx context.Context, input *InputJoinGame) (*Ga
 		return nil, fmt.Errorf("failed to persist game after join: %w", err)
 	}
 
-	s.mutex.Lock()
-	s.gameChannels[game.ID] <- game
-	s.mutex.Unlock()
+	go s.publishGame(game.ID, game)
 
 	return game, nil
 }
@@ -264,18 +302,9 @@ func (s *graphQLServer) CreateGame(ctx context.Context, inputGame InputCreateGam
 			log.Printf("error persisting boardstate into redis: %s", err)
 			return nil, err
 		}
-
-		s.mutex.Lock()
-		s.boardChannels[bs.User.ID] = make(chan *BoardState, 1)
-		s.mutex.Unlock()
 	}
 
-	// Set game ID to channel for subscription updates
-	s.mutex.Lock()
-	s.gameChannels[g.ID] = make(chan *Game, 1)
-	s.mutex.Unlock()
-
-	// set *Game to Redis
+	// persist the game in Redis
 	err := s.Set(GameKey(g.ID), g)
 	if err != nil {
 		return nil, fmt.Errorf("failed to save created game to redis: %s", err)
@@ -381,9 +410,19 @@ func GameKey(gameID string) string {
 	return fmt.Sprintf("%s", gameID)
 }
 
-// publish a game update
+// publish a game update to each Observer of the game
 func (s *graphQLServer) publishGame(gameID string, g *Game) {
-	s.gameChannels[gameID] <- g
+	s.mutex.Lock()
+	if fullgame, ok := s.games[gameID]; ok {
+		s.mutex.Unlock()
+		for _, v := range fullgame.Observers {
+			v.Channel <- g
+		}
+		return
+	} else {
+		s.mutex.Unlock()
+		log.Printf("published update for game that does not exist: %s", gameID)
+	}
 }
 
 // publish a boardstate update

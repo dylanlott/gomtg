@@ -16,17 +16,17 @@ func BoardStateKey(gameID, userID string) string {
 }
 
 // BoardstateUpdated returns a channel that emits all *BoardState events.
+// If one did not exist before it was queried, it will create a new one.
+// If one does exist, it will return the existing boardstate channel.
 func (s *graphQLServer) BoardstateUpdated(ctx context.Context, gameID string, userID string) (<-chan *BoardState, error) {
-	g := &Game{}
-	err := s.Get(GameKey(gameID), g)
-	if err != nil {
-		return nil, errs.Wrap(err)
+	v, ok := s.boardChannels[BoardStateKey(gameID, userID)]
+	if !ok {
+		boardstates := make(chan *BoardState, 1)
+		s.mutex.Lock()
+		s.boardChannels[userID] = boardstates
+		s.mutex.Unlock()
+		return boardstates, nil
 	}
-
-	boardstates := make(chan *BoardState, 1)
-	s.mutex.Lock()
-	s.boardChannels[userID] = boardstates
-	s.mutex.Unlock()
 
 	go func() {
 		<-ctx.Done()
@@ -35,7 +35,7 @@ func (s *graphQLServer) BoardstateUpdated(ctx context.Context, gameID string, us
 		s.mutex.Unlock()
 	}()
 
-	return boardstates, nil
+	return v, nil
 }
 
 // UpdateBoardState updates a BoardState in Redis and notifies that BoardState into the BoardChannels directory

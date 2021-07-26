@@ -22,9 +22,7 @@ type Query {
 }
 
 type Subscription {
-  # messagePosted(user: String!): Message!
-  gameUpdated(gameID: String!): Game!
-  # userJoined(user: String!, gameID: String!): String!
+  gameUpdated(gameID: String!, userID: String!): Game!
   boardstateUpdated(gameID: String!, userID: String!): BoardState!
 }
 

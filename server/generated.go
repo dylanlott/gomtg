@@ -142,7 +142,7 @@ type ComplexityRoot struct {
 
 	Subscription struct {
 		BoardstateUpdated func(childComplexity int, gameID string, userID string) int
-		GameUpdated       func(childComplexity int, gameID string) int
+		GameUpdated       func(childComplexity int, gameID string, userID string) int
 	}
 
 	Turn struct {
@@ -179,7 +179,7 @@ type QueryResolver interface {
 	Search(ctx context.Context, name *string, colors []*string, colorIdentity []*string, keywords []*string) ([]*Card, error)
 }
 type SubscriptionResolver interface {
-	GameUpdated(ctx context.Context, gameID string) (<-chan *Game, error)
+	GameUpdated(ctx context.Context, gameID string, userID string) (<-chan *Game, error)
 	BoardstateUpdated(ctx context.Context, gameID string, userID string) (<-chan *BoardState, error)
 }
 
@@ -745,7 +745,7 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 			return 0, false
 		}
 
-		return e.complexity.Subscription.GameUpdated(childComplexity, args["gameID"].(string)), true
+		return e.complexity.Subscription.GameUpdated(childComplexity, args["gameID"].(string), args["userID"].(string)), true
 
 	case "Turn.Number":
 		if e.complexity.Turn.Number == nil {
@@ -901,9 +901,7 @@ type Query {
 }
 
 type Subscription {
-  # messagePosted(user: String!): Message!
-  gameUpdated(gameID: String!): Game!
-  # userJoined(user: String!, gameID: String!): String!
+  gameUpdated(gameID: String!, userID: String!): Game!
   boardstateUpdated(gameID: String!, userID: String!): BoardState!
 }
 
@@ -1486,6 +1484,15 @@ func (ec *executionContext) field_Subscription_gameUpdated_args(ctx context.Cont
 		}
 	}
 	args["gameID"] = arg0
+	var arg1 string
+	if tmp, ok := rawArgs["userID"]; ok {
+		ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("userID"))
+		arg1, err = ec.unmarshalNString2string(ctx, tmp)
+		if err != nil {
+			return nil, err
+		}
+	}
+	args["userID"] = arg1
 	return args, nil
 }
 
@@ -3756,7 +3763,7 @@ func (ec *executionContext) _Subscription_gameUpdated(ctx context.Context, field
 	fc.Args = args
 	resTmp := ec._fieldMiddleware(ctx, nil, func(rctx context.Context) (interface{}, error) {
 		ctx = rctx // use context from middleware stack in children
-		return ec.resolvers.Subscription().GameUpdated(rctx, args["gameID"].(string))
+		return ec.resolvers.Subscription().GameUpdated(rctx, args["gameID"].(string), args["userID"].(string))
 	})
 
 	if resTmp == nil {

@@ -41,12 +41,14 @@ type graphQLServer struct {
 	db     *sql.DB
 	cardDB persistence.Database
 
+	// games holds a reference to *FullGames in the server.
+	games map[string]*FullGame
+
 	// Channels per resource to achieve realtime.
-	// Game, Board, and Message channels are required for a Game to be running.
+	// Game and Board channels are required for a Game to be running.
 	// TODO: Channels are only stored in memory.
 	// If the server crashes, we'll need to setup all the channels for
 	// existing games again.
-	gameChannels    map[string]chan *Game
 	boardChannels   map[string]chan *BoardState
 	messageChannels map[string]chan *Message
 	userChannels    map[string]chan string
@@ -90,9 +92,9 @@ func NewGraphQLServer(
 		db:              appDB,
 		kv:              kv,
 		redisClient:     client,
+		games:           map[string]*FullGame{},
 		messageChannels: map[string]chan *Message{},
 		userChannels:    map[string]chan string{},
-		gameChannels:    map[string]chan *Game{},
 		boardChannels:   map[string]chan *BoardState{},
 	}, nil
 }

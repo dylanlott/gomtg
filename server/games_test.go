@@ -8,7 +8,7 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
-	"github.com/google/uuid"
+	"github.com/stretchr/testify/assert"
 )
 
 func TestCreateGame(t *testing.T) {
@@ -307,10 +307,11 @@ func TestUpdateGame(t *testing.T) {
 			}
 
 			// register the channel for our tests
-			gameChannel, err := s.GameUpdated(tt.args.ctx, g.ID)
+			gameChannel, err := s.GameUpdated(tt.args.ctx, g.ID, g.PlayerIDs[0].ID)
 			if err != nil {
 				t.Errorf("failed to get game subscription: %s", err)
 			}
+			log.Printf("gameChannel: %+v", gameChannel)
 
 			// fire off our UpdateGame function
 			got, err := s.UpdateGame(tt.args.ctx, tt.args.new)
@@ -318,6 +319,7 @@ func TestUpdateGame(t *testing.T) {
 				t.Errorf("graphQLServer.UpdateGame() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
+			t.Logf("update Game got: %+v", got)
 
 			// assert on the returns
 			diff := cmp.Diff(got, tt.want, cmpopts.IgnoreFields(Game{}, "CreatedAt"))
@@ -328,26 +330,49 @@ func TestUpdateGame(t *testing.T) {
 
 			// assert on the game that was emitted from our subscription
 			emitted := <-gameChannel
+			t.Logf("emitted game: %+v", emitted)
 			diff2 := cmp.Diff(emitted, tt.want, cmpopts.IgnoreFields(Game{}, "CreatedAt"))
 			if diff2 != "" {
 				t.Errorf("failed to emit game on channels correctly: diff %+v", diff2)
-			}
-
-			_, ok := s.gameChannels[got.ID]
-			if !ok {
-				t.Errorf("failed to setup game channel")
 			}
 		})
 	}
 }
 
-// NB: necessary to get a reference to a string because of this problem
-// https://stackoverflow.com/questions/10535743/address-of-a-temporary-in-go
+func TestMultipleSubscriptions(t *testing.T) {
+	player2 := "0xDEADBEEF"
+	s := testAPI(t)
+	created, err := s.CreateGame(context.Background(), *seedInputGame)
+	assert.NoError(t, err)
+	assert.NotNil(t, created)
 
-// randomUserID returns a stringified UUID that is used for Player generation
-func randomUserID() *string {
-	var id = uuid.New().String()
-	return &id
+	ch1, err := s.GameUpdated(context.Background(), created.ID, seedUserID)
+	assert.NoError(t, err)
+	assert.NotNil(t, ch1)
+
+	ch2, err := s.GameUpdated(context.Background(), created.ID, "0xDEADBEEF")
+	assert.NoError(t, err)
+	assert.NotNil(t, ch2)
+
+	updated, err := s.UpdateGame(context.Background(), InputGame{
+		ID: created.ID,
+		PlayerIDs: []*InputUser{
+			{Username: "meatwad", ID: &player2},
+			{Username: "shakezula", ID: &seedUserID},
+		},
+		Turn: &InputTurn{
+			Player: "meatwad",
+			Phase:  "pregame",
+			Number: -1,
+		},
+		CreatedAt: &created.CreatedAt,
+	})
+	assert.NoError(t, err)
+	assert.NotNil(t, updated)
+
+	first := <-ch1
+	second := <-ch2
+	assert.Equal(t, first, second)
 }
 
 // returns a csv formatted string using a premade decklist that tests up to the

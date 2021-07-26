@@ -39,7 +39,6 @@ func (s *graphQLServer) Set(key string, value interface{}) error {
 // If they key is not found, it will return an error.
 // If the key exists but is empty, it will return empty.
 func (s *graphQLServer) Get(key string, dest interface{}) error {
-	log.Printf("checking key: %s", key)
 	exists, err := s.redisClient.Exists(key).Result()
 	if err != nil {
 		return errs.Wrap(err)
