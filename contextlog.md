@@ -613,3 +613,70 @@ as easy as possible to sign up.
 One problem: I think that we need to make sure we subscribe to new boardstates 
 when a player is added to the Game.
 
+Need to add functionality for removing a player from the game.
+Need to add a settings sidebar too.
+
+11 July 2021
+=============
+
+Boardstates are working between players, now I just need to clean them up 
+and do some more bug fixing. I think I fixed the major issues with auth 
+and user.ID consistency, so now I Just need to write more tests for the backend
+while I bug fix and add features to the front end. 
+
+Also need to sit down and figure out what I can remove from this app to keep 
+the code slim and smart. What fat can I trim and simplify the code to make it 
+better? 
+
+21 July 2021
+============
+
+Having a problem with boardstates not being updated until refresh
+Other than that, though, things are working pretty well actually. 
+A refresh of the page will correctly load a players opponent's boardstate subs
+Need to figure out why they're not loading.
+
+* I think UpdateGame needs to return a the game channel instead of making a new one 
+  * Write a test for multiple subscribers 
+  * Test multiple calls of GameUpdated and BoardstateUpdated
+
+23 July 2021
+============
+
+* Need to make Games and Boardstates a multi-producer/single-consumer pattern 
+  * I think the update function being called multiple times was clobbering my 
+    channel so I need to write it so that we maintain a user:game relationship
+  * Or, we declare a game channels map of gameID's to []Subscribers
+  * each sub gets a *Game pushed on it when an update happens.
+  * Have to do the same for Boardstates if we can get Games working.
+
+24 July 2021 - Pioneer Day 
+============================
+
+* After some thought about the Problem I think I need to maintain an internal
+Something like this: 
+```go
+s := &Server{
+    playerChannels: map[userID]*Player,
+}
+
+// Player binds a BoardState and Game channel to a Player's UserID
+type Player struct {
+    BoardState chan *BoardState
+    Game chan *Game
+}
+```
+
+I think the problem is I don't fundamentally understand how Subscriptions are 
+supposed to be handled in Apollo. 
+
+https://github.com/99designs/gqlgen/tree/master/example/chat
+
+This link seems like it will be a little more helpful, I am going to read all
+of the docs on gqlgen and hopefully I'll get it a lot better after that. 
+
+https://github.com/99designs/gqlgen/blob/master/example/chat/resolvers.go
+Specifically this seems to suggest that I do need to set up an observer pattern
+here like I thought I would. 
+
+a
