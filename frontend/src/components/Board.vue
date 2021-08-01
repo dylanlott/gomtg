@@ -6,27 +6,25 @@
 
     <!-- ### OPPONENTS BOARDSTATES ### -->
     <div class="columns" :key="player.ID" v-for="player in bs">
-      <div class="columns" v-if="user.ID != player">
-        <div class="title">{{ user.Username }}</div>
-        <!-- <div class="title">{{ player.Username }} {{ index }}</div> -->
-        <!-- <div class="battlefield">
+      <div class="columns" v-if="user.ID !== player.User.ID">
+        <div class="title">{{ player.User.Username }}</div>
+        <div class="battlefield">
           <div class="columns" v-if="player">
             <div class="column">
               <draggable
                 class="columns is-mobile"
-                @change="handleChange()"
                 v-model="player.Field"
                 group="people"
                 @start="drag = true"
                 @end="drag = false"
               >
-                <div @click="handleTap(card)" class="column mtg-card" v-for="card in player.Field" :key="card.id">
+                <div class="column mtg-card" v-for="card in player.Field" :key="card.id">
                   <Card v-bind="card"></Card>
                 </div>
               </draggable>
             </div>
           </div>
-        </div> -->
+        </div>
       </div>
     </div>
     <!-- ### END OF OPPONENTS BOARDSTATES ### -->
@@ -35,7 +33,7 @@
     <div class="columns" v-if="self">
       <!-- SELF - BATTLEFIELD -->
       <div class="column">
-        <p class="title">Battlefield</p>
+        <p class="title is-4">Battlefield</p>
         <draggable
           class="columns is-mobile"
           @change="handleChange()"
@@ -166,7 +164,7 @@ export default {
     },
     handleTap(card) {
       // TODO: Make this a vuex boardstate action
-      card.Tapped = true;
+      card.Tapped = !card.Tapped;
       this.handleChange();
     },
   },
