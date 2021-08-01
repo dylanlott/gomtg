@@ -4,9 +4,9 @@ import (
 	"context"
 	"reflect"
 	"testing"
+	"time"
 
 	"github.com/google/go-cmp/cmp"
-	"github.com/google/go-cmp/cmp/cmpopts"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -74,7 +74,7 @@ func TestUpdateBoardState(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			s := testAPI(t)
-			created, err := s.CreateGame(tt.args.ctx, *seedInputGame)
+			_, err := s.CreateGame(tt.args.ctx, *seedInputGame)
 			if err != nil {
 				t.Errorf("failed to create dummy game: %s", err)
 			}
@@ -82,10 +82,12 @@ func TestUpdateBoardState(t *testing.T) {
 			// register the BoardState channel for the userID
 			bch, err := s.BoardstateUpdated(
 				tt.args.ctx,
-				created.ID,
+				"TestUpdateBoardStateObserver",
 				*tt.args.input.User.ID,
 			)
 			assert.Equal(t, err, nil)
+			assert.NotNil(t, bch)
+			time.Sleep(time.Second * 1)
 			got, err := s.UpdateBoardState(tt.args.ctx, tt.args.input)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("graphQLServer.UpdateBoardState() error = %v, wantErr %v", err, tt.wantErr)
@@ -110,146 +112,42 @@ func TestUpdateBoardState(t *testing.T) {
 	}
 }
 
-func Test_Boardstates(t *testing.T) {
+func TestMultipleObservers(t *testing.T) {
 	s := testAPI(t)
-	s.CreateGame(context.Background(), *seedInputGame)
-	p1 := string("0xTHEMICRULAH")
-	p1commander := string("3269194123946123469")
-	_, err := s.BoardstateUpdated(context.Background(), seedGameID, p1)
-	if err != nil {
-		t.Errorf("failed to register boardstate update channel for p1")
-	}
-	_, err = s.UpdateBoardState(context.Background(), InputBoardState{
-		User: &InputUser{
-			Username: "shakezula",
-			ID:       &p1,
-		},
-		GameID: seedGameID,
-		Life:   40,
-		Commander: []*InputCard{
-			{
-				ID:   &p1commander,
-				Name: "Kykar, Wind's Fury",
-			},
-		},
-	})
-	if err != nil {
-		t.Errorf("failed to update boardstate: %s", err)
-	}
-	p2 := string("meatwad")
-	p2commander := string("437823498234982349823498")
-	_, err = s.BoardstateUpdated(context.Background(), seedGameID, p2)
-	if err != nil {
-		t.Errorf("failed to register boardstate update channel for p2")
-	}
-	_, err = s.UpdateBoardState(context.Background(), InputBoardState{
-		User: &InputUser{
-			Username: "meatwad",
-			ID:       &p2,
-		},
-		GameID: seedGameID,
-		Life:   38,
-		Commander: []*InputCard{
-			{
-				ID:   &p2commander,
-				Name: "Sidisi, Undead Vizier",
-			},
-		},
-	})
-	if err != nil {
-		t.Errorf("failed to update boardstate for p2: %s", err)
-	}
-	type args struct {
-		ctx    context.Context
-		gameID string
-		userID *string
-	}
-	tests := []struct {
-		name    string
-		args    args
-		want    []*BoardState
-		wantErr bool
-	}{
-		{
-			name: "should return a boardstate with a gameID and userID",
-			args: args{
-				ctx:    context.Background(),
-				gameID: seedGameID,
-				userID: &p1,
-			},
-			want: []*BoardState{
-				{
-					GameID: seedGameID,
-					User: &User{
-						Username: "shakezula",
-						ID:       p1,
-					},
-					Life: 40,
-					Commander: []*Card{
-						{
-							ID:   p1commander,
-							Name: "Kykar, Wind's Fury",
-						},
-					},
-				},
-			},
-			wantErr: false,
-		},
-		// {
-		// 	name: "should return all boardstate that match the gameID",
-		// 	args: args{
-		// 		ctx:    context.Background(),
-		// 		gameID: seedGameID,
-		// 		userID: nil,
-		// 	},
-		// 	want: []*BoardState{
-		// 		{
-		// 			GameID: seedGameID,
-		// 			User: &User{
-		// 				Username: "shakezula",
-		// 				ID:       p1,
-		// 			},
-		// 			Life: 40,
-		// 			Commander: []*Card{
-		// 				{
-		// 					ID:   p1commander,
-		// 					Name: "Kykar, Wind's Fury",
-		// 				},
-		// 			},
-		// 		},
-		// 		{
-		// 			GameID: seedGameID,
-		// 			User: &User{
-		// 				Username: "meatwad",
-		// 				ID:       p2,
-		// 			},
-		// 			Life: 38,
-		// 			Commander: []*Card{
-		// 				{
-		// 					ID:   p2commander,
-		// 					Name: "Sidisi, Undead Vizier",
-		// 				},
-		// 			},
-		// 		},
-		// 	},
-		// 	wantErr: false,
-		// },
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			if tt.args.userID != nil {
-				_, err := s.BoardstateUpdated(tt.args.ctx, tt.args.gameID, *tt.args.userID)
-				assert.NoError(t, err, "failed to setup channel listener")
-			}
-			got, err := s.Boardstates(tt.args.ctx, tt.args.gameID, tt.args.userID)
-			if (err != nil) != tt.wantErr {
-				t.Errorf("graphQLServer.Boardstates() error = %+v, wantErr %+v", err, tt.wantErr)
-				return
-			}
-			if !reflect.DeepEqual(got, tt.want) {
-				t.Logf("diff: %s", cmp.Diff(got, tt.want, cmpopts.IgnoreUnexported(BoardState{})))
-				t.Errorf("graphQLServer.Boardstates() = %+v, want %+v", got, tt.want)
-			}
-		})
-	}
+	ctx := context.Background()
+	ctx, done := context.WithCancel(ctx)
+	created, err := s.CreateGame(ctx, *seedInputGame)
+	assert.NoError(t, err)
+	// NB: these should both be observing the same user from *seedInputGame
+	ch1, err := s.BoardstateUpdated(ctx, "testobs1", seedUserID)
+	assert.NoError(t, err)
+	assert.NotNil(t, ch1)
+	ch2, err := s.BoardstateUpdated(ctx, "testobs2", seedUserID)
+	assert.NoError(t, err)
+	assert.NotNil(t, ch2)
+
+	// game has 1 player, so let's update that player's boardstate and see
+	// if the other two channels are alerted to that
+	all, err := s.Boardstates(ctx, created.ID, nil)
+	assert.NoError(t, err)
+	assert.NotNil(t, all)
+	p1 := all[0]
+	p1.Life = 20
+	in, err := inputFromBoardState(*p1)
+	assert.NoError(t, err)
+	assert.NotNil(t, in)
+
+	// fire off the update to trigger a boardstate update event
+	updated, err := s.UpdateBoardState(ctx, in)
+	assert.NoError(t, err)
+	assert.NotNil(t, updated)
+
+	// listen for results and compare to desired boardstates
+	bs1 := <-ch1
+	bs2 := <-ch2
+	assert.NotNil(t, bs1)
+	assert.NotNil(t, bs2)
+	assert.Equal(t, bs1, updated)
+	assert.Equal(t, bs2, updated)
+	done()
 }

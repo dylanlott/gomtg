@@ -407,7 +407,7 @@ func (s *graphQLServer) createLibraryFromDecklist(ctx context.Context, decklist 
 
 // GameKey formats the keys for Games in our Directory
 func GameKey(gameID string) string {
-	return fmt.Sprintf("%s", gameID)
+	return gameID
 }
 
 // publish a game update to each Observer of the game
@@ -423,9 +423,4 @@ func (s *graphQLServer) publishGame(gameID string, g *Game) {
 		s.mutex.Unlock()
 		log.Printf("published update for game that does not exist: %s", gameID)
 	}
-}
-
-// publish a boardstate update
-func (s *graphQLServer) publishBoardstate(gameID string, userID string, bs *BoardState) {
-	s.boardChannels[userID] <- bs
 }

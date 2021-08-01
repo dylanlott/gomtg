@@ -44,6 +44,9 @@ type graphQLServer struct {
 	// games holds a reference to *FullGames in the server.
 	games map[string]*FullGame
 
+	// boards holds references to *FullBoards which track BoardObservers
+	boards map[string]*FullBoardstate
+
 	// Channels per resource to achieve realtime.
 	// Game and Board channels are required for a Game to be running.
 	// TODO: Channels are only stored in memory.
@@ -93,6 +96,7 @@ func NewGraphQLServer(
 		kv:              kv,
 		redisClient:     client,
 		games:           map[string]*FullGame{},
+		boards:          map[string]*FullBoardstate{},
 		messageChannels: map[string]chan *Message{},
 		userChannels:    map[string]chan string{},
 		boardChannels:   map[string]chan *BoardState{},

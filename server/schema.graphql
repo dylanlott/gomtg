@@ -23,7 +23,7 @@ type Query {
 
 type Subscription {
   gameUpdated(gameID: String!, userID: String!): Game!
-  boardstateUpdated(gameID: String!, userID: String!): BoardState!
+  boardstateUpdated(observerID: String!, userID: String!): BoardState!
 }
 
 type Message {
