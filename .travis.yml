@@ -5,5 +5,7 @@ go:
 
 service:
   - redis-server
-
+  - docker
+before-script:
+  - ./start_dev_postgres.sh
 script: make test-api && make build
