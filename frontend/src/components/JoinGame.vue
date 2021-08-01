@@ -37,7 +37,7 @@
             <b-input maxlength="200000" v-model="deck.library" type="textarea"></b-input>
           </b-field>
 
-           <div v-if="!user.Username">
+          <div v-if="!user.Username">
             <b-field label="Add a username?">
               <b-input v-model="username"></b-input>
             </b-field>
@@ -52,6 +52,7 @@
 <script>
 import gql from 'graphql-tag';
 import { mapState } from 'vuex';
+import { debounce } from 'lodash';
 
 export default {
   name: 'join',

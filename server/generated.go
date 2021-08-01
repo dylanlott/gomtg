@@ -141,7 +141,7 @@ type ComplexityRoot struct {
 	}
 
 	Subscription struct {
-		BoardstateUpdated func(childComplexity int, gameID string, userID string) int
+		BoardstateUpdated func(childComplexity int, observerID string, userID string) int
 		GameUpdated       func(childComplexity int, gameID string, userID string) int
 	}
 
@@ -180,7 +180,7 @@ type QueryResolver interface {
 }
 type SubscriptionResolver interface {
 	GameUpdated(ctx context.Context, gameID string, userID string) (<-chan *Game, error)
-	BoardstateUpdated(ctx context.Context, gameID string, userID string) (<-chan *BoardState, error)
+	BoardstateUpdated(ctx context.Context, observerID string, userID string) (<-chan *BoardState, error)
 }
 
 type executableSchema struct {
@@ -733,7 +733,7 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 			return 0, false
 		}
 
-		return e.complexity.Subscription.BoardstateUpdated(childComplexity, args["gameID"].(string), args["userID"].(string)), true
+		return e.complexity.Subscription.BoardstateUpdated(childComplexity, args["observerID"].(string), args["userID"].(string)), true
 
 	case "Subscription.gameUpdated":
 		if e.complexity.Subscription.GameUpdated == nil {
@@ -902,7 +902,7 @@ type Query {
 
 type Subscription {
   gameUpdated(gameID: String!, userID: String!): Game!
-  boardstateUpdated(gameID: String!, userID: String!): BoardState!
+  boardstateUpdated(observerID: String!, userID: String!): BoardState!
 }
 
 type Message {
@@ -1452,14 +1452,14 @@ func (ec *executionContext) field_Subscription_boardstateUpdated_args(ctx contex
 	var err error
 	args := map[string]interface{}{}
 	var arg0 string
-	if tmp, ok := rawArgs["gameID"]; ok {
-		ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("gameID"))
+	if tmp, ok := rawArgs["observerID"]; ok {
+		ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("observerID"))
 		arg0, err = ec.unmarshalNString2string(ctx, tmp)
 		if err != nil {
 			return nil, err
 		}
 	}
-	args["gameID"] = arg0
+	args["observerID"] = arg0
 	var arg1 string
 	if tmp, ok := rawArgs["userID"]; ok {
 		ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("userID"))
@@ -3812,7 +3812,7 @@ func (ec *executionContext) _Subscription_boardstateUpdated(ctx context.Context,
 	fc.Args = args
 	resTmp := ec._fieldMiddleware(ctx, nil, func(rctx context.Context) (interface{}, error) {
 		ctx = rctx // use context from middleware stack in children
-		return ec.resolvers.Subscription().BoardstateUpdated(rctx, args["gameID"].(string), args["userID"].(string))
+		return ec.resolvers.Subscription().BoardstateUpdated(rctx, args["observerID"].(string), args["userID"].(string))
 	})
 
 	if resTmp == nil {

@@ -32,7 +32,6 @@ const BoardStates = {
         // violate our one-direction data flow principle
         self: {},
         // error is an error message from the API. 
-        // TODO: Make these decay 
         error: undefined
     },
     mutations: {
@@ -51,7 +50,6 @@ const BoardStates = {
         updateBoardStates(state, payload) {
             // update each boardstate by player ID
             payload.forEach((bs) => {
-                console.log('updating boardstate:', bs)
                 if (bs.User.ID == "" || bs.User.ID == undefined) {
                     state.error = "boardstate did not have ID"
                     return
@@ -66,14 +64,12 @@ const BoardStates = {
     actions: {
         draw({ commit, dispatch }, boardstate) {
             const bs = Object.assign({}, boardstate)
-            console.log('draw#boardstate:', bs)
             if (bs.Library.length < 1) {
                 // handle player losing issue
                 commit('error', 'you cannot draw from an empty library. you lose the game.')
                 console.error('cannot draw from an empty library.')
             }
             const card = bs.Library.shift()
-            console.log('card: ', card)
             bs.Hand.push(card)
             dispatch('mutateBoardState', bs)
         },
@@ -93,8 +89,9 @@ const BoardStates = {
                     commit('error', 'something went wrong.')
                 })
         },
-        // gets all boardstates from server, but doesn't subscribe
-        getBoardStates({ state, commit, rootState }, gameID) {
+        // subAll fetches all boardstates from the server and then subscribes 
+        // to all of them.
+        subAllBoardstates({ commit, dispatch, rootState }, {gameID, obsID}) {
             return new Promise((resolve, reject) => {
                 api.query({
                     query: boardstates,
@@ -104,28 +101,38 @@ const BoardStates = {
                 })
                 .then((resp) => {
                     resp.data.boardstates.forEach((boardstate) => {
+                        console.log('subAllBoardstates#boardstate: ', boardstate)
+                        // dispatch boardstate subscription here
+                        dispatch('subToBoardstate', {
+                            obsID: obsID,
+                            userID: boardstate.User.ID,
+                        })
                         if (boardstate.User.ID === rootState.User.User.ID) {
                             commit('updateSelf', boardstate)
                         } else {
                             commit('updateBoardStates', resp.data.boardstates)
                         }
                     })
-                    // Note: we don't need to put this resp into an array because its already a list
+                    // Note: we don't need to put this resp into an array 
+                    // because its already a list
                     return resolve(resp.data)
                 })
                 .catch((err) => {
                     console.error('GET BOARDSTATES FAILED: ', err)
-                    commit('error', err)
+                    commit('boardstates subscription error: ', err)
                     return reject(err)
                 })
             })
         },
-        // used for subscribing to single board updates
+        // used for subscribing to single boardstate updates. the observer ID 
+        // is the current user's ID and the userID is the ID of the user whose 
+        // boardstate is being subscribed.
         subToBoardstate({ rootState, commit }, payload) {
+            console.log('subscribing to boardstate', payload)
             const sub = api.subscribe({
-                query: boardstateSubscription,// TODO: Add the right query  
+                query: boardstateSubscription,
                 variables: {
-                    gameID: payload.gameID,
+                    obsID: payload.obsID,
                     userID: payload.userID,
                 },
             })
@@ -133,8 +140,9 @@ const BoardStates = {
                 next(data) {
                     // detect self vs opponents here and assign accordingly 
                     if (data.data.boardstateUpdated.User.ID == rootState.User.User.ID) {
-                        console.log("SELF RECEIVED: ", data.data.boardstateUpdated)
+                        commit('updateSelf', data.data.boardstateUpdated)
                     }
+                    console.log('boardstate subscription received: ', data.data.boardstateUpdated)
                     commit('updateBoardStates', [data.data.boardstateUpdated])
                 },
                 error(err) {
@@ -175,7 +183,6 @@ const Game = {
         updateGame(state, game) {
             // merge updated game over current game
             const g = Object.assign(state.game, game)
-            console.log('updateGame mutation: ', g)
             state.game = g
         },
         updateTurn(state, turn) {
@@ -187,6 +194,7 @@ const Game = {
     },
     actions: {
         getGame({ commit }, ID) {
+            // subscribe to game updates here
             return new Promise((resolve, reject) => {
                 api.query({
                     query: gameQuery,// TODO: Add the right query  
@@ -203,11 +211,12 @@ const Game = {
                 })
             })
         },
-        subscribeToGame({ state, commit }, ID) {
+        subscribeToGame({ state, commit, dispatch }, { gameID, userID }) {
             api.query({
                 query: gameQuery,
                 variables: {
-                    gameID: ID,
+                    gameID: gameID,
+                    userID: userID,
                 }
             })
             .then(data => {
@@ -218,12 +227,22 @@ const Game = {
                 const sub = api.subscribe({
                     query: gameUpdateQuery,// nb: this is where we use the subscription { } query
                     variables: {
-                        gameID: ID,
+                        gameID: gameID,
+                        userID: userID,
                     }
                 })
                 sub.subscribe({
                     next(data) {
-                        commit('updateGame', data.data.gameUpdated)
+                        // const g = data.data.gameUpdated
+                        // if (g.PlayerIDs.length > state.game.PlayerIDs.length) {
+                        //     for (const player in g.PlayerIDs) {
+                        //         dispatch('subToBoardstate', {
+                        //             userID: player,
+                        //             obsID: player,
+                        //         })
+                        //     }
+                        // }
+                        // commit('updateGame', data.data.gameUpdated)
                     },
                     error(err) {
                         console.error('vuex error: subscribeToGame: game subscription error: ', err)
@@ -232,7 +251,7 @@ const Game = {
                 })
             })
         },
-        joinGame({ commit, dispatch }, payload) {
+        joinGame({ commit }, payload) {
             return new Promise((resolve, reject) => {
                 api.mutate({
                     mutation: gql`mutation ($InputJoinGame: InputJoinGame) {
@@ -255,8 +274,6 @@ const Game = {
                 })
                 .then((res) => {
                     commit('updateGame', res.data.joinGame)
-                    console.log(this.$store.dispatch)
-                    dispatch('boardstates/getBoardStates', res.data.joinGame.ID)
                     router.push({ path: `/games/${res.data.joinGame.ID}` })
                     return resolve(res)
                 })
@@ -310,7 +327,6 @@ const Game = {
                 }
             })
             .then((data) => {
-                console.log('updateGame is setting: ', data.data.updateGame)
                 commit('updateGame', data.data.updateGame)
                 return data
             })

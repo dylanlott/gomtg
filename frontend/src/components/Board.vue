@@ -5,19 +5,37 @@
     <!-- END TURN TRACKER -->
 
     <!-- ### OPPONENTS BOARDSTATES ### -->
-    <div class="columns" :key="player.ID" v-for="player in game.PlayerIDs">
-      <div class="columns" v-if="user.ID && player.ID != user.ID">
-        <div class="title">{{ player.Username }}</div>
+    <div class="columns" :key="player.ID" v-for="player in bs">
+      <div class="columns" v-if="user.ID != player">
+        <div class="title">{{ user.Username }}</div>
+        <!-- <div class="title">{{ player.Username }} {{ index }}</div> -->
+        <!-- <div class="battlefield">
+          <div class="columns" v-if="player">
+            <div class="column">
+              <draggable
+                class="columns is-mobile"
+                @change="handleChange()"
+                v-model="player.Field"
+                group="people"
+                @start="drag = true"
+                @end="drag = false"
+              >
+                <div @click="handleTap(card)" class="column mtg-card" v-for="card in player.Field" :key="card.id">
+                  <Card v-bind="card"></Card>
+                </div>
+              </draggable>
+            </div>
+          </div>
+        </div> -->
       </div>
     </div>
     <!-- ### END OF OPPONENTS BOARDSTATES ### -->
 
-    <div class="title">{{ user.Username }}</div>
     <!-- ### SELF BOARDSTATE - PUBLIC SECTION ### -->
     <div class="columns" v-if="self">
       <!-- SELF - BATTLEFIELD -->
       <div class="column">
-        <p class="title is-5">Battlefield</p>
+        <p class="title">Battlefield</p>
         <draggable
           class="columns is-mobile"
           @change="handleChange()"
@@ -106,13 +124,6 @@
     </template>
   </div>
 </template>
-
-
-
-
-
-    <!-- END OF SELF PRIVATE VIEW -->
-    <!-- ### END OF SELF ### -->
   </div>
 </template>
 <script>
@@ -128,16 +139,17 @@ export default {
     return {};
   },
   created() {
-    this.$store.dispatch('getBoardStates', this.$route.params.id);
-    this.$store.dispatch('getGame', this.$route.params.id).then(() => {
-      this.game.PlayerIDs.forEach((player) => {
-        this.$store.dispatch('subToBoardstate', {
-          gameID: this.$route.params.id,
-          userID: player.ID,
-        });
-      });
-      this.$store.dispatch('subscribeToGame', this.$route.params.id);
+    // load and sub to game
+    // this.$store.dispatch('getGame', this.$route.params.id)
+    this.$store.dispatch('subscribeToGame', {
+      gameID: this.$route.params.id, 
+      userID: this.user.ID,
     });
+    // load and sub to all boardstates
+    this.$store.dispatch('subAllBoardstates', {
+      gameID: this.$route.params.id, 
+      obsID: this.user.ID,
+    })
   },
   computed: mapState({
     game: (state) => state.Game.game,
@@ -153,7 +165,7 @@ export default {
       this.$store.dispatch('mutateBoardState', this.self);
     },
     handleTap(card) {
-      // TODO: Make this a boardstate action
+      // TODO: Make this a vuex boardstate action
       card.Tapped = true;
       this.handleChange();
     },

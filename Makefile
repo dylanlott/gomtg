@@ -13,7 +13,7 @@ build:
 short:
 		$(GOTEST) -v -short ./...
 test-api:
-		$(GOTEST) -v ./server/...
+		$(GOTEST) -v ./server/... -race
 clean:
 		$(GOCLEAN)
 		rm -f $(BINARY_NAME)

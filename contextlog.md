@@ -679,4 +679,18 @@ https://github.com/99designs/gqlgen/blob/master/example/chat/resolvers.go
 Specifically this seems to suggest that I do need to set up an observer pattern
 here like I thought I would. 
 
-a
+1 Aug 2021
+==========
+
+* Need to be careful when using multiple arguments in actions.
+  * Only the first argument for `dispatch` function gets passed to the action.
+* SubAllBoardstates and SubGame need to specifically handle the initial query 
+  * Or should we pull those initial queries out? 
+* Added docker-compose support to our travis.yml file and fixed tests 
+* Need to separate frontend deploys from server deploys somehow.
+* Wrote tests to account for multiple observers to boardstates 
+  * Do we need to do the same for the Game tests? 
+* We are approaching candidate for MVP launch
+* Need to fix the Turn Tracker (again)
+  * That might be the first thing I cut in my adventure to MVP
+  * Stack handling would be better feature anyway I think

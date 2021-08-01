@@ -90,9 +90,13 @@ Prerequisites
 Follow this guide for how we deploy front end updates.
 https://gist.github.com/hone/24b06869b4c1eca701f9
 
+Official Heroku documentation for the static buildpack
+https://github.com/heroku/heroku-buildpack-static
+
 
 `heroku static:deploy` will deploy the vue app to heroku. 
 You can also run `npm run deploy` and this will run the same thing.
+
 
 ## Server
 - Heroku will build and deploy any push to GitHub.
