@@ -1,6 +1,7 @@
 <template>
   <div class="board container is-fluid" v-if="user && game">
     <!-- TURN TRACKER -->
+    {{ game }}
     <div class="column"><TurnTracker :game="game" /></div>
     <!-- END TURN TRACKER -->
 

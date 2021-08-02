@@ -194,10 +194,9 @@ const Game = {
     },
     actions: {
         getGame({ commit }, ID) {
-            // subscribe to game updates here
             return new Promise((resolve, reject) => {
                 api.query({
-                    query: gameQuery,// TODO: Add the right query  
+                    query: gameQuery,
                     variables: {
                         gameID: ID,
                     }
@@ -211,6 +210,8 @@ const Game = {
                 })
             })
         },
+        // subscribesToGame takes a gameID and a userID and creates a new 
+        // subscription to the Game.
         subscribeToGame({ state, commit, dispatch }, { gameID, userID }) {
             api.query({
                 query: gameQuery,
@@ -224,8 +225,11 @@ const Game = {
                     commit('error', 'no game received from subscription')
                     return
                 }
+                // update the game that we receive and then subscribe to 
+                // updates 
+                commit('updateGame', data.data.games[0])
                 const sub = api.subscribe({
-                    query: gameUpdateQuery,// nb: this is where we use the subscription { } query
+                    query: gameUpdateQuery,
                     variables: {
                         gameID: gameID,
                         userID: userID,
@@ -233,16 +237,19 @@ const Game = {
                 })
                 sub.subscribe({
                     next(data) {
-                        // const g = data.data.gameUpdated
-                        // if (g.PlayerIDs.length > state.game.PlayerIDs.length) {
-                        //     for (const player in g.PlayerIDs) {
-                        //         dispatch('subToBoardstate', {
-                        //             userID: player,
-                        //             obsID: player,
-                        //         })
-                        //     }
-                        // }
-                        // commit('updateGame', data.data.gameUpdated)
+                        const g = data.data.gameUpdated
+                        // check if any players joined and sub to their board
+                        // states
+                        if (g.PlayerIDs.length > state.game.PlayerIDs.length) {
+                            for (const player in g.PlayerIDs) {
+                                dispatch('subToBoardstate', {
+                                    userID: player,
+                                    obsID: player,
+                                })
+                            }
+                        }
+                        // commit the received game updates
+                        commit('updateGame', data.data.gameUpdated)
                     },
                     error(err) {
                         console.error('vuex error: subscribeToGame: game subscription error: ', err)
