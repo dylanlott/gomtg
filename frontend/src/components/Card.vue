@@ -8,14 +8,52 @@
   >
     <!-- # TODO: Get images working for cards, but for now text will do.
     // Maybe hovering on a card should expose the
-      <img class="card-img-top" src="https://via.placeholder.com/1000x400.jpg">
+    // This should be the right dimensions so we can scale them up or down. 
+      <img class="card-img-top" src="https://via.placeholder.com/750x1050.jpg">
     -->
-    <div class="card mtg-card">
-        <div class="card-content">
-          <div class="content">
-            {{ Name }}
+
+    <div class="card fixed-size">
+      <!-- TODO: Show this modal view if in text-only mode -->
+      <!-- TODO: Show a card-image class div here with the image -->
+      <div class="card-content">
+        <p class="title is-5">{{ Name }}</p>
+        <p class="is-subtitle">{{ ManaCost }}</p>
+      </div>
+
+      <div class="">
+        <b-collapse class="card" animation="slide" aria-id="contentIdForA11y3">
+          <template #trigger="props">
+            <div class="card-header" role="button" aria-controls="contentIdForA11y3">
+              <!-- It should go supertypes, types, subtypes. -->
+              <p class="card-header-title font-medium">{{ Supertypes }} {{ Types }} {{ Subtypes }}</p>
+              <a class="card-header-icon">
+              <!-- TODO: Make this icon show correctly -->
+                <b-icon :icon="props.open ? 'fa-solid fa-chevron-up' : 'fa-close'"> </b-icon>
+              </a>
+            </div>
+          </template>
+
+          <div class="card-content">
+            {{ Text }}
           </div>
-        </div>
+        </b-collapse>
+
+        <!-- <div>
+          <i class="font-medium card-types"> {{ Types }} {{ Subtypes }} {{ Supertypes }} </i>
+        </div> -->
+      </div>
+      <!-- Collapse ends -->
+
+      <footer class="card-footer">
+        <p class="card-footer-item">
+          <span>
+            <a href="#">Send To <i class=""></i></a>
+          </span>
+        </p>
+        <p class="card-footer-item">
+          <span><i class="fas fa-sync-alt"></i> <a href="#">Tap</a></span>
+        </p>
+      </footer>
     </div>
   </div>
 </template>
@@ -47,28 +85,21 @@ export default {
     'ScryfallID',
     'Tapped',
     'Flipped',
-    'open',
   ],
-  methods: {
-    addCounter(name) {
-      this.trackers[name]++;
-    },
-    removeCounter(name) {
-      this.trackers[name]--;
-    },
-    addLabel(name, value) {
-      this.labels.name = value;
-    },
-    removeLabel(name) {
-      delete this.labels.name;
-    },
-    updateLabel(name, value) {
-      this.labels.name;
-    },
-    moveTo(dst) {},
-    flip() {
-      this.flipped = !this.flipped;
-    },
-  },
 };
 </script>
+<style scoped>
+.fixed-size {
+  width: 275px;
+  max-width: 275px;
+}
+.flipped {
+  color: #000;
+}
+.column {
+  padding: 0rem;
+}
+.card-content {
+  padding: 0.7rem;
+}
+</style>

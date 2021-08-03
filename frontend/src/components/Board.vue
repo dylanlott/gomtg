@@ -1,11 +1,11 @@
 <template>
-  <div class="board container is-fluid" v-if="user && game">
+  <div class="container is-fluid" v-if="user && game">
     <!-- TURN TRACKER -->
-    <div class="column"><TurnTracker :game="game" /></div>
+    <div class="box"><TurnTracker :game="game" /></div>
     <!-- END TURN TRACKER -->
 
     <!-- ### OPPONENTS BOARDSTATES ### -->
-    <div class="columns" :key="player.ID" v-for="player in bs">
+    <div class="box" :key="player.ID" v-for="player in bs">
       <div class="columns" v-if="user.ID !== player.User.ID">
         <div class="title">{{ player.User.Username }}</div>
         <div class="battlefield">
@@ -18,7 +18,7 @@
                 @start="drag = true"
                 @end="drag = false"
               >
-                <div class="column mtg-card" v-for="card in player.Field" :key="card.id">
+                <div class="column" v-for="card in player.Field" :key="card.id">
                   <Card v-bind="card"></Card>
                 </div>
               </draggable>
@@ -29,10 +29,19 @@
     </div>
     <!-- ### END OF OPPONENTS BOARDSTATES ### -->
 
+    <div class="tabs">
+      <ul>
+        <li class="is-active"><a>Battlefield</a></li>
+        <li><a>Music</a></li>
+        <li><a>Videos</a></li>
+        <li><a>Documents</a></li>
+      </ul>
+    </div>
+
     <!-- ### SELF BOARDSTATE - PUBLIC SECTION ### -->
-    <div class="columns" v-if="self">
+    <div class="columns is-flex" v-if="self">
       <!-- SELF - BATTLEFIELD -->
-      <div class="column">
+      <div class="column box is-align-content-flex-start">
         <p class="title is-4">Battlefield</p>
         <draggable
           class="columns is-mobile"
@@ -43,7 +52,7 @@
           @end="drag = false"
         >
           <!-- Note: Cards can only be tapped on the battlefield -->
-          <div @click="handleTap(card)" class="column mtg-card" v-for="card in self.Field" :key="card.id">
+          <div v-on:dblclick="handleTap(card)" class="column" v-for="card in self.Field" :key="card.id">
             <Card v-bind="card"></Card>
           </div>
         </draggable>
@@ -51,75 +60,52 @@
     </div>
     <!-- END SELF BATTLEFIELD -->
 
-    <!-- SELF - PRIVATE SECTION -->
-    <div class="columns">
-      <div class="column">
-        <div class="columns is-mobile is-multiline">
-          <div class="column is-full">
-            <!-- SELF - HAND-->
-            <p class="title is-5">Hand</p>
-            <draggable
-              class="columns is-flex is-multiline is-mobile is-align-items-flex-start"
-              v-model="self.Hand"
-              group="people"
-              @change="handleChange()"
-              @start="drag = true"
-              @end="drag = false"
-            >
-              <div class="column mtg-card" v-for="card in self.Hand" :key="card.id">
-                <Card v-bind="card"></Card>
-              </div>
-            </draggable>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <hr />
-
+    <!-- ### TOOLBAR START  -->
     <template>
       <b-navbar>
         <template #start>
-          <draggable
-            v-model="self.Library"
-            group="people"
-            @change="handleChange()"
-            @start="drag = true"
-            @end="drag = false"
-          >
-            <b-navbar-item @click="handleDraw()" href="#">
-              <button class="button is-primary">
-                <span class="icon">
-                  <i class="fa fa-book"></i>
-                </span>
-                <span>Draw</span>
-              </button>
-            </b-navbar-item>
-          </draggable>
-          <b-navbar-item href="#">
+          <b-navbar-item @click="handleDraw()" href="#">
             <button class="button is-primary">
               <span class="icon">
-                <i class="fa fa-arrow-up"></i>
+                <i class="fa fa-book"></i>
               </span>
-              <span>Untap</span>
+              <span>Draw</span>
             </button>
           </b-navbar-item>
-          <!-- <b-navbar-dropdown label="Info">
-              <b-navbar-item href="#"> About </b-navbar-item>
-              <b-navbar-item href="#"> Contact </b-navbar-item>
-            </b-navbar-dropdown> -->
         </template>
 
         <template #end>
           <b-navbar-item tag="div">
             <div class="buttons">
-              <!-- <a class="button is-primary"> <strong>Sign up</strong> </a>
-              <a class="button is-light"> Log in </a> -->
+              <a @click="handleTapAll()" class="button is-dark"> <strong>Tap All</strong> </a>
+              <a @click="handleUntapAll()" class="button is-light"> Untap All </a>
             </div>
           </b-navbar-item>
         </template>
       </b-navbar>
     </template>
+
+    <!-- FOOTER  -->
+    <footer class="footer">
+      <div class="content">
+        <div class="column is-full">
+          <!-- SELF - HAND-->
+          <p class="title is-5">Hand</p>
+          <draggable
+            class="columns is-flex is-multiline is-mobile is-align-items-flex-start"
+            v-model="self.Hand"
+            group="people"
+            @change="handleChange()"
+            @start="drag = true"
+            @end="drag = false"
+          >
+            <div class="column" v-for="card in self.Hand" :key="card.id">
+              <Card v-bind="card"></Card>
+            </div>
+          </draggable>
+        </div>
+      </div>
+    </footer>
   </div>
 </template>
   </div>
@@ -140,14 +126,14 @@ export default {
     // load and sub to game
     // this.$store.dispatch('getGame', this.$route.params.id)
     this.$store.dispatch('subscribeToGame', {
-      gameID: this.$route.params.id, 
+      gameID: this.$route.params.id,
       userID: this.user.ID,
     });
     // load and sub to all boardstates
     this.$store.dispatch('subAllBoardstates', {
-      gameID: this.$route.params.id, 
+      gameID: this.$route.params.id,
       obsID: this.user.ID,
-    })
+    });
   },
   computed: mapState({
     game: (state) => state.Game.game,
@@ -166,6 +152,12 @@ export default {
       // TODO: Make this a vuex boardstate action
       card.Tapped = !card.Tapped;
       this.handleChange();
+    },
+    handleTapAll() {
+      this.$store.dispatch('tapAll', this.self);
+    },
+    handleUntapAll() {
+      this.$store.dispatch('untapAll', this.self);
     },
   },
   components: {

@@ -1,3 +1,10 @@
 @import "./card.scss";
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@500;700&display=swap'); 
 $primary: #3C34B2;
 $twitter: #18C572;
+
+$column-gap: 0.25rem;
+
+html, body, p {
+    font-family: 'Inter', sans-serif;
+}

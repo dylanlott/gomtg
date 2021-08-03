@@ -62,18 +62,58 @@ const BoardStates = {
         }
     },
     actions: {
+        // draw will draw a card into hand from the top of the board state's  
+        // library. if none exists, it errors and declares your loss.
         draw({ commit, dispatch }, boardstate) {
             const bs = Object.assign({}, boardstate)
             if (bs.Library.length < 1) {
                 // handle player losing issue
                 commit('error', 'you cannot draw from an empty library. you lose the game.')
                 console.error('cannot draw from an empty library.')
+                // TODO: Make it so that losing triggers a server event.
+                // Send the player to the score screen unless they override the 
+                // loss.
+                return
             }
             const card = bs.Library.shift()
             bs.Hand.push(card)
             dispatch('mutateBoardState', bs)
         },
-        // mutate boardstate will mutate a boardstate and then commit the result.
+        // tapAll will tap all cards in the boardstate passed to it.
+        // it early returns if there are no cards on the field.
+        tapAll({ dispatch }, boardstate) {
+            const bs = Object.assign({}, boardstate)
+            if (bs.Field.length < 1) {
+                // nothing to tap, so just return
+                return
+            }
+            // set tapped to true for each card on the field for the Boardstate
+            bs.Field.forEach((card, i) => {
+                card.Tapped = true
+            })
+            // and dispatch the mutation
+            dispatch('mutateBoardState', bs)
+        },
+        // untapAll will untap all cards in the boardstate's Battlefield.
+        // it early returns if no cards are present on the player's battlefield
+        untapAll({ dispatch }, boardstate) {
+            const bs = Object.assign({}, boardstate)
+            if (bs.Field.length < 1) {
+                // nothing to tap, so just return
+                return
+            }
+            // set tapped to true for each card on the field for the Boardstate
+            bs.Field.forEach((card, i) => {
+                card.Tapped = false
+            })
+            // and dispatch the mutation
+            dispatch('mutateBoardState', bs)
+        },
+        // mutate boardstate will mutate a boardstate and then commit the result
+        // * this is used as a more low level action and is usually called in 
+        // other actions after a Boardstate has been copied and safely mutated.
+        // * this can be used directly by the board but actions are cleaner and
+        // are the recommended way of altering the board state.
         mutateBoardState({ commit }, payload) {
             api.mutate({
                 mutation: updateBoardStateQuery,
